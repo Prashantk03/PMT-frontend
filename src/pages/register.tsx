@@ -21,7 +21,7 @@ export default function Register() {
 
       if (res.ok) {
         alert("Registration successful!");
-        navigate("/login");
+        navigate("/");
       } else {
         alert(data.message || "Registration failed");
       }
@@ -34,13 +34,6 @@ export default function Register() {
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-100">
       <div className="bg-white shadow-lg rounded-lg overflow-hidden w-auto max-w-fit mx-auto flex flex-col md:flex-row shadow-violet-500">
-        <div className="w-full md:w-1/2 h-48 md:h-auto">
-          <img
-            src="https://static.vecteezy.com/system/resources/previews/000/174/193/non_2x/online-job-searching-vector.jpg"
-            alt="Register illustration"
-            className="object-cover w-full h-full"
-          />
-        </div>
 
         <div className="w-full md:w-1/2 p-8">
           <div className="text-2xl font-bold text-black mb-6 text-center md:text-left">

@@ -33,28 +33,19 @@ export default function Login() {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-100 px-4">
-      <div className="bg-white shadow-lg rounded-xl overflow-hidden w-full max-w-4xl mx-auto flex flex-col md:flex-row">
-        {/* Left side - Image */}
-        <div className="w-full md:w-1/2 h-48 md:h-auto">
-          <img
-            src=""
-            alt="Job search illustration"
-            className="object-cover w-full h-full"
-          />
-        </div>
+    <div className="flex items-center justify-center min-h-screen bg-gray-100">
+      <div className="bg-white shadow-lg rounded-lg overflow-hidden w-auto max-w-fit mx-auto flex flex-col md:flex-row shadow-violet-500">
 
-        {/* Right side - Form */}
         <div className="w-full md:w-1/2 p-8">
-          <h2 className="text-2xl font-bold text-black mb-6 text-center md:text-left">
+          <div className="text-2xl font-bold text-black mb-6 text-center md:text-left">
             Login to continue
-          </h2>
+          </div>
 
           <form onSubmit={handleSubmit}>
             <div className="mb-4">
               <label
                 htmlFor="email"
-                className="block text-sm font-semibold text-gray-800 mb-1"
+                className="block text-gray-900 text-sm font-bold mb-2"
               >
                 Email address
               </label>
@@ -64,15 +55,14 @@ export default function Login() {
                 placeholder="Enter your email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                required
+                className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 hover:drop-shadow-lg"
               />
             </div>
 
-            <div className="mb-4">
+            <div className="mb-6">
               <label
                 htmlFor="password"
-                className="block text-sm font-semibold text-gray-800 mb-1"
+                className="block text-gray-900 text-sm font-bold mb-2"
               >
                 Password
               </label>
@@ -82,30 +72,27 @@ export default function Login() {
                 placeholder="Enter your password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                required
+                className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 hover:drop-shadow-lg"
               />
-              <div className="text-right mt-1">
-                <a
-                  href="#"
-                  className="text-sm text-violet-500 hover:underline hover:text-violet-700"
-                >
-                  Forgot password?
-                </a>
-              </div>
+              <a
+                href="#"
+                className="text-sm text-violet-500 hover:underline hover:text-violet-800 mt-2 inline-block"
+              >
+                Forgot password?
+              </a>
             </div>
 
-            <div className="mt-6">
+            <div className="mb-6">
               <button
                 type="submit"
-                className="w-full bg-violet-500 text-white font-semibold py-2 rounded-lg hover:bg-violet-600 focus:outline-none focus:ring-2 focus:ring-violet-400 shadow-md"
+                className="w-full bg-violet-500 text-white py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 hover:bg-violet-600 hover:drop-shadow-lg shadow-violet-950"
               >
                 Login
               </button>
             </div>
           </form>
 
-          <p className="text-center text-gray-600 mt-4">
+          <p className="text-center text-gray-600">
             Not a member?{" "}
             <Link
               to="/register"
@@ -119,4 +106,3 @@ export default function Login() {
     </div>
   );
 }
-
