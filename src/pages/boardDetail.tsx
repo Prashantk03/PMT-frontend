@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 
-// Task and Board types
+// Task, Board and User types
 type Task = {
   _id: string;
   title: string;
@@ -11,12 +11,37 @@ type Task = {
   assignedTo?: string;
   dueDate?: Date;
   editing?: boolean;
+  comments?: Comment[];
 };
 
 type Board = {
   _id: string;
   name: string;
   description: string;
+  createdBy: {
+    _id: string;
+    name: string;
+    email: string;
+  } 
+  members: {
+    _id: string;
+    name: string;
+    email: string;
+  }[];
+};
+
+type User = {
+  _id: string;
+  name?: string;
+  email: string;
+};
+
+type Comment = {
+  _id: string;
+  text: string;
+  author: string;
+  authorId: string;
+  createdAt: string;
 };
 
 type Status = "todo" | "in-progress" | "done";
@@ -35,6 +60,11 @@ export default function BoardDetail() {
   const [dueDate, setDueDate] = useState("");
   const [description, setDescription] = useState("");
   const [loading, setLoading] = useState(true);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [members, setMembers] = useState<User[]>([]);
+  const [commentInputs, setCommentInputs] = useState<{ [key: string]: string }>(
+    {}
+  );
 
   useEffect(() => {
     const fetchBoard = async () => {
@@ -54,6 +84,18 @@ export default function BoardDetail() {
     };
     fetchBoard();
   }, [id, token]);
+
+  useEffect(() => {
+    const fetchBoard = async () => {
+      const res = await fetch(`http://localhost:3000/boards/${id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const board = await res.json();
+      setMembers(board.members); // assuming populated
+    };
+
+    fetchBoard();
+  }, [id]);
 
   useEffect(() => {
     const fetchTasks = async () => {
@@ -86,7 +128,7 @@ export default function BoardDetail() {
     if (id) fetchTasks();
   }, [id, token]);
 
-// Create Task
+  // Create Task
   const handleAddTask = async () => {
     if (!title) return alert("Title is required");
     try {
@@ -125,7 +167,7 @@ export default function BoardDetail() {
     }
   };
 
-// Delete Task
+  // Delete Task
   const handleDeleteTask = async (taskId: string) => {
     try {
       const res = await fetch(`http://localhost:3000/tasks/${taskId}`, {
@@ -146,7 +188,7 @@ export default function BoardDetail() {
     }
   };
 
-// Update Task
+  // Update Task
   const handleUpdateTask = async (task: Task) => {
     try {
       const res = await fetch(`http://localhost:3000/tasks/${task._id}`, {
@@ -185,45 +227,165 @@ export default function BoardDetail() {
     }
   };
 
-// Drag & Drop Function
-  const onDragEnd = async (result: any) => {
-    const { source, destination } = result;
-    if (
-      !destination ||
-      (source.droppableId === destination.droppableId &&
-        source.index === destination.index)
-    )
-      return;
-    const sourceTasks = Array.from(tasksByStatus[source.droppableId]);
-    const [movedTask] = sourceTasks.splice(source.index, 1);
-    const destTasks = Array.from(tasksByStatus[destination.droppableId]);
-    movedTask.status = destination.droppableId;
-    destTasks.splice(destination.index, 0, movedTask);
-    setTasksByStatus((prev) => ({
-      ...prev,
-      [source.droppableId]: sourceTasks,
-      [destination.droppableId]: destTasks,
-    }));
-    await fetch(`http://localhost:3000/tasks/${movedTask._id}`, {
-      method: "PATCH",
+  // ADD Comment
+  const handleAddComment = async (taskId: string) => {
+    const text = commentInputs[taskId];
+    if (!text.trim()) return;
+
+    const res = await fetch(`http://localhost:3000/tasks/${taskId}/comments`, {
+      method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify({ status: movedTask.status }),
+      body: JSON.stringify({ text }),
     });
+
+    if (res.ok) {
+      const updatedTask = await res.json();
+      setTasksByStatus((prev) => {
+        const copy = { ...prev };
+        const status = updatedTask.status;
+        copy[status] = copy[status].map((t) =>
+          t._id === taskId ? updatedTask : t
+        );
+        return copy;
+      });
+      setCommentInputs((prev) => ({ ...prev, [taskId]: "" }));
+    }
+  };
+
+  // Delete Comment
+  const handleDeleteComment = async (taskId: string, commentId: string) => {
+    try {
+      const res = await fetch(`http://localhost:3000/tasks/${taskId}/comments/${commentId}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (res.ok) {
+      setTasksByStatus((prev) => {
+        const copy = { ...prev };
+        for (const status in copy) {
+          copy[status] = copy[status].map((task) => {
+            if (task._id === taskId) {
+              return {
+                ...task,
+                comments: task.comments?.filter((c) => c._id !== commentId), // 🧠 remove the comment from task
+              };
+            }
+            return task;
+          });
+        }
+        return copy;
+        });
+      } else {
+        console.error("Failed to delete comment");
+      }
+    } catch (err) {
+      console.error("Error deleting comment:", err);
+    }
+  };
+
+
+
+  // Invite Function
+  const handleInvite = async () => {
+    try {
+      const res = await fetch(`http://localhost:3000/boards/${id}/invite`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ userEmail: inviteEmail }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        console.log("invite response", data);
+
+        setMembers(data.board.members);
+        console.log(data.board.members);
+
+        setInviteEmail("");
+      } else {
+        console.error("Failed to invite user");
+      }
+    } catch (err) {
+      console.error("Invite error:", err);
+    }
+  };
+
+  // Drag & Drop Function
+  const onDragEnd = async (result: any) => {
+    const { source, destination } = result;
+    if (!destination) return;
+
+    const sourceTasks = Array.from(tasksByStatus[source.droppableId]);
+    const destTasks = Array.from(tasksByStatus[destination.droppableId]);
+    const [movedTask] = sourceTasks.splice(source.index, 1);
+
+    if (source.droppableId === destination.droppableId) {
+      sourceTasks.splice(destination.index, 0, movedTask); // insert back in new position
+      setTasksByStatus((prev) => ({
+        ...prev,
+        [source.droppableId]: sourceTasks,
+      }));
+    } else {
+      movedTask.status = destination.droppableId;
+      destTasks.splice(destination.index, 0, movedTask);
+      setTasksByStatus((prev) => ({
+        ...prev,
+        [source.droppableId]: sourceTasks,
+        [destination.droppableId]: destTasks,
+      }));
+
+      // Only send PATCH when status changes
+      await fetch(`http://localhost:3000/tasks/${movedTask._id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ status: movedTask.status }),
+      });
+    }
   };
 
   if (loading) return <div>Loading...</div>;
   if (!board) return <div>Board not found</div>;
 
-//**************************Display*******************************/
+  //**************************Display*******************************/
   return (
     <div className="p-6 max-w-4xl mx-auto">
       <h1 className="text-3xl font-bold">{board.name}</h1>
       <p className="text-gray-700 mb-4">{board.description}</p>
 
       <div className="mb-6">
+        <h3 className="text-lg font-semibold mt-6">Board Members</h3>
+        <ul className="list-disc ml-5">
+          {members.map((member) => (
+            <li key={member._id}>
+              {member.name || member.email || member._id}
+            </li>
+          ))}
+        </ul>
+        <input
+          type="email"
+          placeholder="Enter user email to invite"
+          value={inviteEmail}
+          onChange={(e) => setInviteEmail(e.target.value)}
+          className="border px-2 py-1 rounded w-full mt-4"
+        />
+        <button
+          onClick={handleInvite}
+          className="bg-indigo-600 text-white px-3 py-1 mt-2 mb-2 rounded"
+        >
+          Invite
+        </button>
+
         <h2 className="text-xl font-semibold mb-2">Add Task</h2>
         <input
           type="text"
@@ -248,13 +410,18 @@ export default function BoardDetail() {
           <option value="in-progress">In Progress</option>
           <option value="done">Done</option>
         </select>
-        <input
-          type="text"
+        <select
           value={assignedTo}
           onChange={(e) => setAssignedTo(e.target.value)}
-          placeholder="Assign to (user id)"
           className="border px-4 py-2 rounded w-full mb-2"
-        />
+        >
+          <option value="">Assign to</option>
+          {members.map((member) => (
+            <option key={member.name} value={member.name}>
+              {member.name || member._id || member.email}
+            </option>
+          ))}
+        </select>
         <input
           type="date"
           value={dueDate}
@@ -335,8 +502,8 @@ export default function BoardDetail() {
                                 rows={4}
                                 placeholder="Enter task description..."
                               />
-                              <input
-                                type="text"
+
+                              <select
                                 value={task.assignedTo || ""}
                                 onChange={(e) =>
                                   setTasksByStatus((prev) => {
@@ -352,7 +519,15 @@ export default function BoardDetail() {
                                   })
                                 }
                                 className="border px-2 py-1 mb-1 rounded w-full"
-                              />
+                              >
+                                <option value="">Assign to</option>
+                                {members.map((member) => (
+                                  <option key={member.name} value={member.name}>
+                                    {member.name || member.email || member._id}
+                                  </option>
+                                ))}
+                              </select>
+
                               <div className="flex gap-2 mt-2">
                                 <button
                                   onClick={() => handleUpdateTask(task)}
@@ -399,6 +574,37 @@ export default function BoardDetail() {
                                   Assigned To: {task.assignedTo}
                                 </p>
                               )}
+                              <div className="mt-2">
+                                <h5 className="font-semibold text-sm">
+                                  Comments:
+                                </h5>
+                                {task.comments?.map((comment, idx) => {
+                                  const isBoardOwner = board.createdBy?._id || board.createdBy;
+                                  const isCommentAuthor = localStorage.getItem('userId');
+
+                                  return (
+                                    <div key={idx} className="text-sm text-gray-600 mb-1">
+                                      <p>
+                                        <strong>{comment.author}:</strong> {comment.text}
+                                        <br />
+                                        <span className="text-xs text-gray-400">
+                                          {new Date(comment.createdAt).toLocaleString()}
+                                        </span>
+                                      </p>
+
+                                      {(isBoardOwner || isCommentAuthor) && (
+                                        <button
+                                          onClick={() => handleDeleteComment(task._id, comment._id)}
+                                          className="text-red-500 text-xs hover:underline"
+                                        >
+                                          Delete
+                                        </button>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+
+                              </div>
                               <div className="flex gap-2 mt-2">
                                 <button
                                   onClick={() =>
@@ -423,6 +629,24 @@ export default function BoardDetail() {
                                   className="bg-red-600 text-white px-3 py-1 rounded"
                                 >
                                   Delete
+                                </button>
+                                <input
+                                  type="text"
+                                  placeholder="Add a comment..."
+                                  value={commentInputs[task._id] || ""}
+                                  onChange={(e) =>
+                                    setCommentInputs((prev) => ({
+                                      ...prev,
+                                      [task._id]: e.target.value,
+                                    }))
+                                  }
+                                  className="border px-2 py-1 mt-2 rounded w-full"
+                                />
+                                <button
+                                  onClick={() => handleAddComment(task._id)}
+                                  className="bg-purple-500 text-white mt-1 px-2 py-1 rounded text-sm"
+                                >
+                                  Comment
                                 </button>
                               </div>
                             </>

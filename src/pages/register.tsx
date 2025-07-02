@@ -4,6 +4,7 @@ import { Link, useNavigate } from "react-router-dom";
 export default function Register() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [name, setName] = useState("");
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -14,7 +15,7 @@ export default function Register() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, name, password }),
       });
 
       const data = await res.json();
@@ -58,6 +59,23 @@ export default function Register() {
               />
             </div>
 
+            <div className="mb-4">
+              <label
+                htmlFor="name"
+                className="block text-gray-900 text-sm font-bold mb-2"
+              >
+                Name
+              </label>
+              <input
+                type="name"
+                id="name"
+                placeholder="Enter your Name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 hover:drop-shadow-lg"
+              />
+            </div>
+
             <div className="mb-6">
               <label
                 htmlFor="password"
@@ -88,7 +106,7 @@ export default function Register() {
           <p className="text-center text-gray-600">
             Already have an account?{" "}
             <Link
-              to="/login"
+              to="/"
               className="text-violet-500 hover:underline hover:text-violet-800"
             >
               Login here
