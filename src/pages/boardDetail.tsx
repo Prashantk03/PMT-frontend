@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
+import useSocket from "../hooks/useSocket";
+import { toast } from "react-toastify";
 
 // Task, Board and User types
 type Task = {
@@ -22,7 +24,7 @@ type Board = {
     _id: string;
     name: string;
     email: string;
-  } 
+  }
   members: {
     _id: string;
     name: string;
@@ -74,28 +76,23 @@ export default function BoardDetail() {
             Authorization: `Bearer ${token}`,
           },
         });
-        if (res.ok) setBoard(await res.json());
-        else console.error("Failed to fetch board");
+        if (res.ok) {
+          const boardData = await res.json();
+          setBoard(boardData);
+          setMembers(boardData.members);
+        } else {
+          console.error("Failed to fetch board");
+        }
       } catch (error) {
         console.error("Error fetching board", error);
       } finally {
         setLoading(false);
       }
     };
+
     fetchBoard();
   }, [id, token]);
 
-  useEffect(() => {
-    const fetchBoard = async () => {
-      const res = await fetch(`http://localhost:3000/boards/${id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const board = await res.json();
-      setMembers(board.members); // assuming populated
-    };
-
-    fetchBoard();
-  }, [id]);
 
   useEffect(() => {
     const fetchTasks = async () => {
@@ -148,14 +145,6 @@ export default function BoardDetail() {
         }),
       });
       if (res.ok) {
-        const newTask = await res.json();
-        setTasksByStatus((prev) => ({
-          ...prev,
-          [newTask.status || "todo"]: [
-            ...prev[newTask.status || "todo"],
-            newTask,
-          ],
-        }));
         setTitle("");
         setDescription("");
         setStatus("todo");
@@ -266,20 +255,20 @@ export default function BoardDetail() {
       });
 
       if (res.ok) {
-      setTasksByStatus((prev) => {
-        const copy = { ...prev };
-        for (const status in copy) {
-          copy[status] = copy[status].map((task) => {
-            if (task._id === taskId) {
-              return {
-                ...task,
-                comments: task.comments?.filter((c) => c._id !== commentId), // 🧠 remove the comment from task
-              };
-            }
-            return task;
-          });
-        }
-        return copy;
+        setTasksByStatus((prev) => {
+          const copy = { ...prev };
+          for (const status in copy) {
+            copy[status] = copy[status].map((task) => {
+              if (task._id === taskId) {
+                return {
+                  ...task,
+                  comments: task.comments?.filter((c) => c._id !== commentId), // 🧠 remove the comment from task
+                };
+              }
+              return task;
+            });
+          }
+          return copy;
         });
       } else {
         console.error("Failed to delete comment");
@@ -288,8 +277,6 @@ export default function BoardDetail() {
       console.error("Error deleting comment:", err);
     }
   };
-
-
 
   // Invite Function
   const handleInvite = async () => {
@@ -317,6 +304,67 @@ export default function BoardDetail() {
       console.error("Invite error:", err);
     }
   };
+
+  // Web Socket
+  useSocket(id, (event) => {
+    if (event.type === "task") {
+      const { task, action, taskId } = event; // ✅ Destructure properly
+
+      setTasksByStatus((prev) => {
+        const updated = { ...prev };
+
+        // Delete Task
+        if (action === "delete" && taskId) {
+          for (const key in updated) {
+            updated[key] = updated[key].filter((t) => t._id !== taskId);
+          }
+          return updated;
+        }
+
+        // Create or Update Task
+        if (task) {
+          const newStatus = task.status || "todo";
+
+          // Remove from all statuses
+          for (const key in updated) {
+            updated[key] = updated[key].filter((t) => t._id !== task._id);
+          }
+
+          // Add to correct status column
+          if (!updated[newStatus].some((t) => t._id === task._id)) {
+            updated[newStatus] = [...updated[newStatus], task];
+          }
+        }
+
+        return updated;
+      });
+    }
+
+    // Comment Update
+    if (event.type === "comment") {
+      const { task } = event;
+
+      const latestComment = task.comments?.[task.comments.length - 1];
+      if (latestComment) {
+        toast.info(` New comment by ${latestComment.author || "Unknown"}`);
+      }
+
+      setTasksByStatus((prev) => {
+        const updated = { ...prev };
+
+        for (const key in updated) {
+          updated[key] = updated[key].map((t) =>
+            t._id === task._id ? task : t
+          );
+        }
+
+        return updated;
+      });
+    }
+
+  });
+
+
 
   // Drag & Drop Function
   const onDragEnd = async (result: any) => {
